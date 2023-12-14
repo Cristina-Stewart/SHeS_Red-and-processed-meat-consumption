@@ -160,12 +160,10 @@ svy, subpop(RRPMConsumer): mean Avg_Bfast_RRPM
 svy, subpop(RRPMConsumer): mean Avg_Lunch_RRPM 
 svy, subpop(RRPMConsumer): mean Avg_Dinner_RRPM 
 svy, subpop(RRPMConsumer): mean Avg_Snacks_RRPM
- 
 
- 
-/*==============================================================
-Export avg intakes per capita and by consumer quintile to excel
-===============================================================*/
+/*===================================================================
+Export avg intakes by consumers overall and consumer tertile to excel
+====================================================================*/
 
 matrix avgmeat = J(34, 6, .) 	
 local r=2
