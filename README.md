@@ -14,7 +14,7 @@ This Stata do-file creates a food-level and participant-level dataset. It combin
 Mean daily per cent contributions of all food categories and food groups to total RPM intake are provided. Further, mean daily per cent 
 contributions from meal occasion, day of the week, purchase location, and estimated consumption location to total RPM intake are provided.
 
-Files needed to run this do-file.
+Files needed to run this do-file:
 #### Data files
 Two data files are needed to run this do-file, and can be downloaded from the UK Data Archive.
 - shes21_intake24_food-level_dietary_data_eul - Intake 24 diet data. There are multiple observations per participant, each observation corresponds to a food item reported.
