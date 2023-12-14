@@ -29,7 +29,7 @@ SHeS 2021_Red and red processed meat_labels - labels all the variables in the da
 
 ## Data Analysis Files
 ### SHeS_Red and red processed meat analysis_Manuscript.do
-This do-file contains all analyses of RPM dietary data used in the manuscript "Red and processed meat consumption behaviours in Scottish adults". This do-file also contains code which exports the following data into Excel tables, overall and among RPM consumers overall and across consumer tertiles (low, medium, and high consumers): 
+This do-file contains all analyses of RPM dietary data used in the manuscript "Red and processed meat consumption behaviours in Scottish adults". This do-file also contains code which exports the following data into Excel tables, overall and among RPM consumers tertiles (low, medium, and high consumers): 
 
 1) Mean daily intake of RPM (g)
 2) Mean daily intake of RPM by meal occasion (g)
