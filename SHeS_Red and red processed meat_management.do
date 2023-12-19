@@ -1,7 +1,7 @@
 
 
 ********************************************************************************
-*Manuscript: "Red and processed meat consumption behaviours in Scottish adults"
+*Manuscript: "Red and red processed meat (RRPM) consumption behaviours in Scottish adults"
 
 *Data management do-file for the manuscript 
 *******************************************************************************
@@ -35,7 +35,7 @@ set maxvar 10000
 ******************
 *Merging datasets
 ******************
-/*use "$diet", clear
+use "$diet", clear
 sort Cpseriala RecallNo
 
 Rename missing variable names
@@ -53,16 +53,12 @@ rename variabl09 Iodine
 rename variabl000 Selenium
 
 save "$diet", replace
-*/
-
 
 use "$dems", clear
 keep Cpseriala psu Strata InIntake24 SHeS_Intake24_wt_sc simd20_sga Ethnic05 Sex age NumberOfRecalls HBCode 
 sort Cpseriala
 
 merge 1:m Cpseriala using "$diet"
-	*check merge - OK
-	*tab _merge InIntake24
 	drop _merge
 	*dropping nutrients not used
 	drop EnergykJ- OtherVegg WhiteFishg- OtherCheeseg
@@ -166,23 +162,23 @@ foreach var of varlist Beef_Process Beef_Burgers Beef_Sausages Beef_Offal Lamb_B
 *Totals will be calculated in next section
 
 
-/******************************************************
+******************************************************
 *Explore what proportion of processed meat is poultry*
 ******************************************************
 gen ProcessedMeatCategory=0
 replace ProcessedMeatCategory=1 if ProcessedRedMeatg>0 | Burgersg>0 | Sausagesg>0 | ProcessedPoultryg>0
-
-ta FoodDescription if ProcessedMeatCategory>0
+replace ProcessedMeatCategory=. if RecallNo==. 
 
 gen ProcessedPoultry=0
 replace ProcessedPoultry=1 if ProcessedMeatCategory==1 & strpos(FoodDescription, "Chicken/turkey sausage") | ProcessedPoultryg>0
+replace ProcessedPoultry=. if RecallNo==. 
 
 *Assign survey weights
 svyset [pweight=SHeS_Intake24_wt_sc], psu(psu) strata(Strata)
 
 ta FoodDescription if  ProcessedMeatCategory==1 & ProcessedPoultry==1
 svy, subpop(intake24): prop ProcessedPoultry if ProcessedMeatCategory==1, percent
-*/
+
 
 /*********************************************************************************************
 Create daily summary intakes (g) of RRPM - first need to calculate totals at food item level
