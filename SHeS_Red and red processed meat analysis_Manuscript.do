@@ -808,52 +808,37 @@ use "$data\SHeS 2021_foodlevel_rrpm_manuscript_$date.dta", clear
 *Assign survey weights
 svyset [pweight=SHeS_Intake24_wt_sc], psu(psu) strata(Strata)
 
-*Create binary variables for consumer tertile subpops
-	*Low consumers
-	gen RRPM_Tertile_1=0
-	replace RRPM_Tertile_1=1 if RRPM_Tertile==1
-	*Medium consumers
-	gen RRPM_Tertile_2=0
-	replace RRPM_Tertile_2=1 if RRPM_Tertile==2
-	*High consumers
-	gen RRPM_Tertile_3=0
-	replace RRPM_Tertile_3=1 if RRPM_Tertile==3
-
 *Create new binary variable for rrpm product
 	gen rrpm_item=0
 	replace rrpm_item=1 if rrpmg>0 & rrpmg!=.
+
+*Create binary variables for consumer tertile subpops
+	*Add non-consumers into consumer tertiles
+	replace RRPM_Tertile=0 if RRPM_Tertile==. & intake24==1
 	
+	*Low consumers
+	gen rrpm_lowconsumer=.
+	replace rrpm_lowconsumer=1 if RRPM_Tertile==1 & rrpm_item==1
+	replace rrpm_lowconsumer=0 if (RRPM_Tertile==0 | RRPM_Tertile==2 | RRPM_Tertile==3) & rrpm_item==1
+	
+	*Medium consumers
+	gen rrpm_mediumconsumer=.
+	replace rrpm_mediumconsumer=1 if RRPM_Tertile==2 & rrpm_item==1
+	replace rrpm_mediumconsumer=0 if (RRPM_Tertile==0 | RRPM_Tertile==1 | RRPM_Tertile==3) & rrpm_item==1
+	
+	*High consumers
+	gen rrpm_highconsumer=.
+	replace rrpm_highconsumer=1 if RRPM_Tertile==3 & rrpm_item==1
+	replace rrpm_highconsumer=0 if (RRPM_Tertile==0 | RRPM_Tertile==1 | RRPM_Tertile==2) & rrpm_item==1
+
 
 *Unweighted n
 ta FoodDescription if rrpm_item==1 & RRPM_Tertile==1
 ta FoodDescription if rrpm_item==1 & RRPM_Tertile==2
 ta FoodDescription if rrpm_item==1 & RRPM_Tertile==3
 
-*Weighted % - not working!!!- (pulling out >100 extra items)    	@LJ thess survey weighted frequencies aren't working - it's pulling far more products (not containing RPM) than in the unweighted N's
-svy, subpop(RRPM_Tertile_1): ta FoodDescription if rrpm_item==1 	/*@LJ - have tried defining the subpop in a few different ways but can't get it to work*/
-svy, subpop(RRPM_Tertile_2): ta FoodDescription if rrpm_item==1 
-svy, subpop(RRPM_Tertile_3): ta FoodDescription if rrpm_item==1 
-
-	*Alternative ways of getting survey weighted estimates (pulls out even more products)
-	svy, subpop(RRPM_Tertile_1 if rrpm_item==1): ta FoodDescription
-	svy, subpop(RRPM_Tertile_2 if rrpm_item==1): ta FoodDescription
-	svy, subpop(RRPM_Tertile_3 if rrpm_item==1): ta FoodDescription
-
-		*Create more specific subpop variables
-		gen rrpm_lowconsumer=0
-		replace rrpm_lowconsumer=1 if rrpm_item==1 & RRPM_Tertile_1==1
-		
-		gen rrpm_mediumconsumer=0
-		replace rrpm_mediumconsumer=1 if rrpm_item==1 & RRPM_Tertile_2==1
-
-		gen rrpm_highconsumer=0
-		replace rrpm_highconsumer=1 if rrpm_item==1 & RRPM_Tertile_3==1
-
-			*Another alternative
-			svy, subpop(rrpm_lowconsumer): ta FoodDescription /*still not working.. pulling too many products*/
-			svy, subpop(rrpm_mediumconsumer): ta FoodDescription
-			svy, subpop(rrpm_highconsumer): ta FoodDescription
-
+*Weighted % 
+svy, subpop(rrpm_lowconsumer): ta FoodDescription 
+svy, subpop(rrpm_mediumconsumer): ta FoodDescription
+svy, subpop(rrpm_highconsumer): ta FoodDescription
 	
-
-
