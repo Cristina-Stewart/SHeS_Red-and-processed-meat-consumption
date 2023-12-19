@@ -1,6 +1,6 @@
 
 ********************************************************************************
-*Manuscript: "Red and processed meat consumption behaviours in Scottish adults"
+*Manuscript: "Red and red processed meat (RRPM) consumption behaviours in Scottish adults"
 
 *Data analysis do-file for the manuscript 
 *******************************************************************************
