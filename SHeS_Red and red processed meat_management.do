@@ -23,7 +23,7 @@ global location "K:\DrJaacksGroup\FSS - Dietary Monitoring\SHeS\SHeS 2021\RRPM p
 global data `"$location\Data"'
 global output `"$location\Output"'
 global code `"$location\Code"'
-global date "20231311"
+global date "20231912"
 
 *Demographic data
 global dems `"$data\shes21i_eul"'
@@ -191,6 +191,16 @@ egen totalpork=rowtotal(Porkg Pork_Process Pork_Burgers Pork_Sausages Pork_Offal
 egen totalredgame=rowtotal(OtherRedMeatg Game_Sausages)
 egen rrpmg=rowtotal(totalbeef totallamb totalpork totalredgame)
 
+*Intakes of processed animal types
+	egen beef_processed=rowtotal(Beef_Process Beef_Burgers Beef_Sausages)		
+	egen lamb_processed=rowtotal(Lamb_Burgers)
+	egen pork_processed=rowtotal(Pork_Process Pork_Burgers Pork_Sausages)
+	egen game_processed=rowtotal(Game_Sausages)
+
+*Total processed and unprocessed red meat
+	egen totalredprocessed=rowtotal(Beef_Process Beef_Burgers Beef_Sausages Lamb_Burgers Pork_Process Pork_Burgers Pork_Sausages Game_Sausages)
+	egen totalredunprocessed=rowtotal(Beefg Beef_Offal Lambg Lamb_Offal Porkg Pork_Offal OtherRedMeatg)
+
 *Day level
 bysort Cpseriala RecallNo: egen Day_Beef=sum(totalbeef)
 bysort Cpseriala RecallNo: egen Day_Lamb=sum(totallamb)
@@ -198,11 +208,21 @@ bysort Cpseriala RecallNo: egen Day_Pork=sum(totalpork)
 bysort Cpseriala RecallNo: egen Day_RedGame=sum(totalredgame)
 bysort Cpseriala RecallNo: egen Day_RRPM=sum(rrpmg)
 
+*Intakes of processed animal types
+	bysort Cpseriala RecallNo: egen Day_BeefProcessed=sum(beef_processed)	
+	bysort Cpseriala RecallNo: egen Day_LambProcessed=sum(lamb_processed)
+	bysort Cpseriala RecallNo: egen Day_PorkProcessed=sum(pork_processed)
+	bysort Cpseriala RecallNo: egen Day_GameProcessed=sum(game_processed)
+
+	*Total processed and unprocessed red meat
+	bysort Cpseriala RecallNo: egen Day_RedProcessed=sum(totalredprocessed)
+	bysort Cpseriala RecallNo: egen Day_RedUnprocessed=sum(totalredunprocessed)
+
 *Day level intake of kcal
 bysort Cpseriala RecallNo: egen Day_Kcal=sum(Energykcal)
 
 *Replace values of those without recalls to missing
-foreach var of varlist totalbeef totallamb totalpork totalredgame rrpmg Day_Beef Day_Lamb Day_Pork Day_RedGame Day_RRPM Day_Kcal {
+foreach var of varlist totalbeef totallamb totalpork totalredgame rrpmg beef_processed lamb_processed pork_processed game_processed totalredprocessed totalredunprocessed Day_Beef Day_Lamb Day_Pork Day_RedGame Day_RRPM Day_BeefProcessed Day_LambProcessed Day_PorkProcessed Day_GameProcessed Day_RedProcessed Day_RedUnprocessed Day_Kcal {
 	replace `var' =. if RecallNo==. 
 }
 
@@ -374,6 +394,19 @@ foreach var of varlist `dailyaverage' {
     bysort Cpseriala: gen Prop_`var'=(`var'/Avg_Day_RRPM)*100
 }
 
+/*************************************************************
+Calculate proportion of RRPM that is processed vs unprocessed
+*************************************************************/
+bysort Cpseriala: gen Prop_RedProcessed = (Avg_Day_RedProcessed/Avg_Day_RRPM)*100
+bysort Cpseriala: gen Prop_RedUnprocessed = (Avg_Day_RedUnprocessed/Avg_Day_RRPM)*100
+
+/**************************************************
+Calculate proportion of processed meat animal types
+***************************************************/
+bysort Cpseriala: gen Prop_BeefProcessed = (Avg_Day_BeefProcessed/Avg_Day_RedProcessed)*100
+bysort Cpseriala: gen Prop_LambProcessed = (Avg_Day_LambProcessed/Avg_Day_RedProcessed)*100
+bysort Cpseriala: gen Prop_PorkProcessed = (Avg_Day_PorkProcessed/Avg_Day_RedProcessed)*100
+bysort Cpseriala: gen Prop_GameProcessed = (Avg_Day_GameProcessed/Avg_Day_RedProcessed)*100
 
 
 /**********************************
@@ -459,44 +492,44 @@ ta FoodSource if rrpmg>0
 	*Fast food/takeaway *3 changes
 	replace FoodSource="Fast food / take-away outlet" if rrpmg>0 & FoodSource=="Other: Greggs" | rrpmg>0 &  FoodSource=="Other: McDonalds" | rrpmg>0 & FoodSource=="Other: greggs bakers"
 
-	*Food bank (existing multiple choice option) *4 changes
-	replace FoodSource="Other" if rrpmg>0 & FoodSource=="Food bank (charity/community) or government food delivery scheme (food boxes/parcels)"
-
 *Collapse all remaining 'other' locations together
 replace FoodSource="Other" if strpos(FoodSource, "Other") & rrpmg>0 
 
+*Check they have all been categorised correctly - all okay
+ta FoodSource if rrpmg>0
 
-/******************************
-Estimating consumption location
-*******************************/
+/**************************************************************
+Collapse purchase location into three categories for reporting
+1) Supermarkets
+2) Cafes/restaurants/pubs/takeaway
+3) Other
+**************************************************************/
 
-*Home consmption 
-gen RRPM_ConsumptionLocation=""
-replace RRPM_ConsumptionLocation="Home" if FoodSource=="Supermarket / local shop / petrol station - household shopping" & rrpmg>0 & rrpmg!=.
+ta FoodSource if rrpmg>0
 
-*Out of home consumption
-replace RRPM_ConsumptionLocation="OOH" if FoodSource!="Supermarket / local shop / petrol station - household shopping" & FoodSource!="Don't know" & strpos(FoodSource, "Other")==0 & rrpmg>0  & rrpmg!=.
+gen PurchaseLocation=.
+replace PurchaseLocation=1 if strpos(FoodSource, "Supermarket") & rrpmg>0
+replace PurchaseLocation=2 if (strpos(FoodSource, "Burger") | strpos(FoodSource, "coffee shop") | strpos(FoodSource, "Fast food") | strpos(FoodSource, "Restaurant")) & rrpmg>0
+replace PurchaseLocation=3 if (strpos(FoodSource, "Canteen") | strpos(FoodSource, "Don't know") | strpos(FoodSource, "Leisure") | strpos(FoodSource, "Other") | strpos(FoodSource, "Food bank")) & rrpmg>0
 
-*Unlcear
-replace RRPM_ConsumptionLocation="Other" if RRPM_ConsumptionLocation!="Home" & RRPM_ConsumptionLocation!="OOH" & FoodSource!="Don't know" & rrpmg>0  & rrpmg!=.
+label define PurchaseLocation 1 "Supermarkets" 2 "Restaurants & bars" 3 "Other"
+label values PurchaseLocation PurchaseLocation
 
-
+*Check they have all been categorised correctly - all okay
+ta PurchaseLocation if rrpmg>0 & rrpmg!=., miss
 
 /*************************************************************
 *Calculate mean intake of RRPM within each:
 1) Meal occasion
 2) Day of the week
-3) Purchase location (food source)
-4) Estimated consumption location (home vs out of home)
-
+3) Purchase location 
 *************************************************************/
 
 *Create new variables for analysis
 
-	*Tag each unique meal occasion, purchase location and consumption location
+	*Tag each unique meal occasion & purchase location
 	bysort Cpseriala RecallNo MealOccasion: gen meal_n=_n==1 if intake24==1
-	bysort Cpseriala RecallNo RRPM_ConsumptionLocation: gen location_n=_n==1 if intake24==1
-	bysort Cpseriala RecallNo FoodSource: gen foodsource_n=_n==1 if intake24==1
+	bysort Cpseriala RecallNo PurchaseLocation: gen purchaselocation_n=_n==1 if intake24==1
 
 	*Check if any respondent has two recalls on same day of the week
 	bysort Cpseriala SubDay: gen day_n=_n==1  if intake24==1/*Unique days of the week*/
@@ -513,10 +546,8 @@ replace RRPM_ConsumptionLocation="Other" if RRPM_ConsumptionLocation!="Home" & R
 	bysort Cpseriala RecallNo MealOccasion: egen Meal_RRPM=sum(rrpmg) if intake24==1
 	*Day of the week
 	bysort Cpseriala RecallNo SubDay: egen WkDay_RRPM=sum(rrpmg) if intake24==1
-	*Estimated consumption location
-	bysort Cpseriala RecallNo RRPM_ConsumptionLocation: egen Location_RRPM=sum(rrpmg) if intake24==1
 	*Purchase location
-	bysort Cpseriala RecallNo FoodSource: egen FoodSource_RRPM=sum(rrpmg) if intake24==1
+	bysort Cpseriala RecallNo PurchaseLocation: egen PurchaseLocation_RRPM=sum(rrpmg) if intake24==1
 
 **Calculate average grams of RRPM per:
 
@@ -530,21 +561,14 @@ replace RRPM_ConsumptionLocation="Other" if RRPM_ConsumptionLocation!="Home" & R
 		bysort Cpseriala SubDay: gen Avg_WkDay_RRPM = Wk_Day_RRPM if NumberOfRecalls==2 & NumberOfDiffDays==2 | NumberOfRecalls==1 & NumberOfDiffDays==1
 		bysort Cpseriala SubDay: replace Avg_WkDay_RRPM = (Wk_Day_RRPM/NumberOfRecalls) if NumberOfRecalls==2 & NumberOfDiffDays==1
 		bysort Cpseriala SubDay: egen Avg_SubDay_RRPM=max(Avg_WkDay_RRPM) if intake24==1
-		
-	*3) Estimated consumption location
-		bysort Cpseriala RRPM_ConsumptionLocation: egen Wk_Location_RRPM = total(Location_RRPM) if location_n==1
-		bysort Cpseriala RRPM_ConsumptionLocation: egen WkMax_Location_RRPM = max(Wk_Location_RRPM)
-		bysort Cpseriala RRPM_ConsumptionLocation: gen Avg_Location_RRPM = (WkMax_Location_RRPM/NumberOfRecalls) if intake24==1
 
-	*4) Purchase location 
-		bysort Cpseriala FoodSource: egen Wk_FoodSource_RRPM = total(FoodSource_RRPM) if foodsource_n==1
-		bysort Cpseriala FoodSource: egen WkMax_FoodSource_RRPM = max(Wk_FoodSource_RRPM)
-		bysort Cpseriala FoodSource: gen Avg_FoodSource_RRPM = (WkMax_FoodSource_RRPM/NumberOfRecalls) if intake24==1
+	*3) Purchase location 
+		bysort Cpseriala PurchaseLocation: egen Wk_PurchaseLocation_RRPM = total(PurchaseLocation_RRPM) if purchaselocation_n==1
+		bysort Cpseriala PurchaseLocation: egen WkMax_PurchaseLocation_RRPM = max(Wk_PurchaseLocation_RRPM)
+		bysort Cpseriala PurchaseLocation: gen Avg_PurchaseLocation_RRPM = (WkMax_PurchaseLocation_RRPM/NumberOfRecalls) if intake24==1
 
 		*Drop variables no longer needed
-		drop wkday_n Wk_Day_RRPM Avg_WkDay_RRPM WkDay_RRPM Wk_Meal_RRPM WkMax_Meal_RRPM Wk_Location_RRPM WkMax_Location_RRPM Wk_FoodSource_RRPM WkMax_FoodSource_RRPM
-	
-
+		drop wkday_n Wk_Day_RRPM Avg_WkDay_RRPM WkDay_RRPM Wk_Meal_RRPM WkMax_Meal_RRPM Wk_PurchaseLocation_RRPM WkMax_PurchaseLocation_RRPM
 
 /**********************************************************************
 ***Pull out avg intakes across meal occasions into individual variables
@@ -620,126 +644,34 @@ bysort Cpseriala: egen Avg_Sun_RRPM=max(Avg_Sunday_RRPM)
 
 drop Avg_Monday_RRPM- Avg_Sunday_RRPM
 
-
-/***************************************************************************
-***Pull out avg intakes across consumption location into individual variables
-****************************************************************************/
-
-*Home
-bysort Cpseriala: gen Avg_HomeConsumption_RRPM=.
-bysort Cpseriala: replace Avg_HomeConsumption_RRPM=Avg_Location_RRPM if RRPM_ConsumptionLocation=="Home"
-bysort Cpseriala: egen Avg_HomeConsmp_RRPM=max(Avg_HomeConsumption_RRPM)
-replace Avg_HomeConsmp_RRPM=0 if Avg_HomeConsmp_RRPM==. & intake24==1
-drop Avg_HomeConsumption_RRPM
-
-*OOH
-bysort Cpseriala: gen Avg_OOHConsumption_RRPM=.
-bysort Cpseriala: replace Avg_OOHConsumption_RRPM=Avg_Location_RRPM if RRPM_ConsumptionLocation=="OOH"
-bysort Cpseriala: egen Avg_OOHConsmp_RRPM=max(Avg_OOHConsumption_RRPM)
-replace Avg_OOHConsmp_RRPM=0 if Avg_OOHConsmp_RRPM==. & intake24==1
-drop Avg_OOHConsumption_RRPM
-
-*Other
-bysort Cpseriala: gen Avg_OtherConsumption_RRPM=.
-bysort Cpseriala: replace Avg_OtherConsumption_RRPM=Avg_Location_RRPM if RRPM_ConsumptionLocation=="Other"
-bysort Cpseriala: egen Avg_OtherConsmp_RRPM=max(Avg_OtherConsumption_RRPM)
-replace Avg_OtherConsmp_RRPM=0 if Avg_OtherConsmp_RRPM==. & intake24==1
-drop Avg_OtherConsumption_RRPM
-
-*Missing
-bysort Cpseriala: gen Avg_MissingConsumption_RRPM=.
-bysort Cpseriala: replace Avg_MissingConsumption_RRPM=Avg_Location_RRPM if RRPM_ConsumptionLocation=="" & rrpmg>0
-bysort Cpseriala: egen Avg_MissingConsmp_RRPM=max(Avg_MissingConsumption_RRPM)
-replace Avg_MissingConsmp_RRPM=0 if Avg_MissingConsmp_RRPM==. & intake24==1
-drop Avg_MissingConsumption_RRPM
-
-*Check total intake from home, OOH and other equals total consumed
-gen PurchaseTotal=Avg_HomeConsmp_RRPM + Avg_OOHConsmp_RRPM + Avg_OtherConsmp_RRPM + Avg_MissingConsmp_RRPM 
-gen PurchaseCheck=PurchaseTotal-Avg_Day_RRPM
-ta PurchaseCheck
-
-drop PurchaseCheck PurchaseTotal
-
-/************************************************
-*Calculate % contributions from consumption location
-************************************************/ 
-bysort Cpseriala: gen Prop_HomeConsumption_RRPM = (Avg_HomeConsmp_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_OOHConsumption_RRPM = (Avg_OOHConsmp_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_OtherConsumption_RRPM = (Avg_OtherConsmp_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_MissingConsumption_RRPM = (Avg_MissingConsmp_RRPM/Avg_Day_RRPM)*100 if intake24==1
-
-replace Prop_HomeConsumption_RRPM=0 if Prop_HomeConsumption_RRPM==. & RRPMConsumer==1
-replace Prop_OOHConsumption_RRPM=0 if Prop_OOHConsumption_RRPM==. & RRPMConsumer==1
-replace Prop_OtherConsumption_RRPM=0 if Prop_OtherConsumption_RRPM==. & RRPMConsumer==1
-replace Prop_MissingConsumption_RRPM=0 if Prop_MissingConsumption_RRPM==. & RRPMConsumer==1
-
-
 /*********************************************************************
-Pull out avg intakes across each food source into individual variables
+Pull out avg intakes across each purchase location into individual variables
 **********************************************************************/
-ta FoodSource if rrpmg>0
 
-bysort Cpseriala: gen Avg_Src_FoodVan_RRPM=.
-bysort Cpseriala: gen Avg_Src_Deli_RRPM=.
-bysort Cpseriala: gen Avg_Src_Canteen_RRPM=.
-bysort Cpseriala: gen Avg_Src_DK_RRPM=.
-bysort Cpseriala: gen Avg_Src_FastFood_RRPM=.
-bysort Cpseriala: gen Avg_Src_LeisureCentre__RRPM=.
-bysort Cpseriala: gen Avg_Src_Other_RRPM=.
-bysort Cpseriala: gen Avg_Src_Pub_RRPM=.
-bysort Cpseriala: gen Avg_Src_Supermarket_OTG_RRPM=.
-bysort Cpseriala: gen Avg_Src_Supermarket_Shop_RRPM=.
+bysort Cpseriala: gen Avg_Purchase_Supermarket_RRPM=.
+bysort Cpseriala: gen Avg_Purchase_Restaurants_RRPM=.
+bysort Cpseriala: gen Avg_Purchase_Other_RRPM=.
 
-bysort Cpseriala: replace Avg_Src_FoodVan_RRPM=Avg_FoodSource_RRPM if FoodSource=="Burger, chip or kebab van / 'street food'"
-bysort Cpseriala: replace Avg_Src_Deli_RRPM=Avg_FoodSource_RRPM if strpos(FoodSource, "coffee shop / sandwich bar / deli")
-bysort Cpseriala: replace Avg_Src_Canteen_RRPM=Avg_FoodSource_RRPM if FoodSource=="Canteen at work or school / university / college"
-bysort Cpseriala: replace Avg_Src_DK_RRPM=Avg_FoodSource_RRPM if FoodSource=="Don't know"
-bysort Cpseriala: replace Avg_Src_FastFood_RRPM=Avg_FoodSource_RRPM if FoodSource=="Fast food / take-away outlet"
-bysort Cpseriala: replace Avg_Src_LeisureCentre__RRPM=Avg_FoodSource_RRPM if FoodSource=="Leisure centre / recreation or entertainment venue"
-bysort Cpseriala: replace Avg_Src_Other_RRPM=Avg_FoodSource_RRPM if FoodSource=="Other"
-bysort Cpseriala: replace Avg_Src_Pub_RRPM=Avg_FoodSource_RRPM if FoodSource=="Restaurant or pub"
-bysort Cpseriala: replace Avg_Src_Supermarket_OTG_RRPM=Avg_FoodSource_RRPM if FoodSource=="Supermarket / local shop / petrol station - food on the go"
-bysort Cpseriala: replace Avg_Src_Supermarket_Shop_RRPM=Avg_FoodSource_RRPM if FoodSource=="Supermarket / local shop / petrol station - household shopping"
+bysort Cpseriala: replace Avg_Purchase_Supermarket_RRPM=Avg_PurchaseLocation_RRPM if PurchaseLocation==1 & intake24==1
+bysort Cpseriala: replace Avg_Purchase_Restaurants_RRPM=Avg_PurchaseLocation_RRPM if PurchaseLocation==2 & intake24==1
+bysort Cpseriala: replace Avg_Purchase_Other_RRPM=Avg_PurchaseLocation_RRPM if PurchaseLocation==3 & intake24==1
 
-bysort Cpseriala: egen Avg_Srce_FoodVan_RRPM=max(Avg_Src_FoodVan_RRPM)
-bysort Cpseriala: egen Avg_Srce_Deli_RRPM=max(Avg_Src_Deli_RRPM)
-bysort Cpseriala: egen Avg_Srce_Canteen_RRPM=max(Avg_Src_Canteen_RRPM)
-bysort Cpseriala: egen Avg_Srce_DK_RRPM=max(Avg_Src_DK_RRPM)
-bysort Cpseriala: egen Avg_Srce_FastFood_RRPM=max(Avg_Src_FastFood_RRPM)
-bysort Cpseriala: egen Avg_Srce_LeisureCentre__RRPM=max(Avg_Src_LeisureCentre__RRPM)
-bysort Cpseriala: egen Avg_Srce_Other_RRPM=max(Avg_Src_Other_RRPM)
-bysort Cpseriala: egen Avg_Srce_Pub_RRPM=max(Avg_Src_Pub_RRPM)
-bysort Cpseriala: egen Avg_Srce_Supermarket_OTG_RRPM=max(Avg_Src_Supermarket_OTG_RRPM)
-bysort Cpseriala: egen Avg_Srce_Supermarket_Shop_RRPM=max(Avg_Src_Supermarket_Shop_RRPM)
+bysort Cpseriala: egen Avg_Location_Supermarket_RRPM=max(Avg_Purchase_Supermarket_RRPM)
+bysort Cpseriala: egen Avg_Location_Restaurants_RRPM=max(Avg_Purchase_Restaurants_RRPM)
+bysort Cpseriala: egen Avg_Location_Other_RRPM=max(Avg_Purchase_Other_RRPM)
 
-drop Avg_Src_FoodVan_RRPM- Avg_Src_Supermarket_Shop_RRPM
+drop Avg_Purchase_Supermarket_RRPM Avg_Purchase_Restaurants_RRPM Avg_Purchase_Other_RRPM
 
-replace Avg_Srce_FoodVan_RRPM=0 if Avg_Srce_FoodVan_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_Deli_RRPM=0 if Avg_Srce_Deli_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_Canteen_RRPM=0 if Avg_Srce_Canteen_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_DK_RRPM=0 if Avg_Srce_DK_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_FastFood_RRPM=0 if Avg_Srce_FastFood_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_LeisureCentre__RRPM=0 if Avg_Srce_LeisureCentre__RRPM==. & RRPMConsumer==1
-replace Avg_Srce_Other_RRPM=0 if Avg_Srce_Other_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_Pub_RRPM=0 if Avg_Srce_Pub_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_Supermarket_OTG_RRPM=0 if Avg_Srce_Supermarket_OTG_RRPM==. & RRPMConsumer==1
-replace Avg_Srce_Supermarket_Shop_RRPM=0 if Avg_Srce_Supermarket_Shop_RRPM==. & RRPMConsumer==1
+replace Avg_Location_Supermarket_RRPM=0 if Avg_Location_Supermarket_RRPM==. & RRPMConsumer==1
+replace Avg_Location_Restaurants_RRPM=0 if Avg_Location_Restaurants_RRPM==. & RRPMConsumer==1
+replace Avg_Location_Other_RRPM=0 if Avg_Location_Other_RRPM==. & RRPMConsumer==1
 
-
-/*****************************************
-Calculate % contributions from food source
-******************************************/
-bysort Cpseriala: gen Prop_Srce_FoodVan_RRPM = (Avg_Srce_FoodVan_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_Deli_RRPM = (Avg_Srce_Deli_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_Canteen_RRPM = (Avg_Srce_Canteen_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_DK_RRPM = (Avg_Srce_DK_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_FastFood_RRPM = (Avg_Srce_FastFood_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_LeisureCentre_RRPM = (Avg_Srce_LeisureCentre__RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_Other_RRPM = (Avg_Srce_Other_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_Pub_RRPM = (Avg_Srce_Pub_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_Supermarket_OTG_RRPM = (Avg_Srce_Supermarket_OTG_RRPM/Avg_Day_RRPM)*100 if intake24==1
-bysort Cpseriala: gen Prop_Srce_Supermarket_Shop_RRPM = (Avg_Srce_Supermarket_Shop_RRPM/Avg_Day_RRPM)*100 if intake24==1
-
+/***********************************************
+Calculate % contributions from purchase location
+************************************************/
+bysort Cpseriala: gen Prop_Location_Supermarket_RRPM = (Avg_Location_Supermarket_RRPM/Avg_Day_RRPM)*100 if intake24==1
+bysort Cpseriala: gen Prop_Location_Restaurants_RRPM = (Avg_Location_Restaurants_RRPM/Avg_Day_RRPM)*100 if intake24==1
+bysort Cpseriala: gen Prop_Location_Other_RRPM = (Avg_Location_Other_RRPM/Avg_Day_RRPM)*100 if intake24==1
 
 /********************************************************************
  Create categorical variables to distinguish between consumer levels
@@ -761,8 +693,7 @@ replace RRPM_Meal=1 if Meal_RRPM>0 & intake24==1
 
 
 ****Drop variables no longer needed
-drop Day_* n Beef_Process-totalredgame meal_n location_n foodsource_n Meal_RRPM Location_RRPM FoodSource_RRPM Avg_Meal_RRPM Avg_SubDay_RRPM Avg_Location_RRPM Avg_FoodSource_RRPM NumberOfDiffDays
-
+drop Day_* n Beef_Process-totalredgame meal_n purchaselocation_n Meal_RRPM PurchaseLocation_RRPM Avg_Meal_RRPM Avg_SubDay_RRPM Avg_PurchaseLocation_RRPM NumberOfDiffDays
 
 
 *****************
